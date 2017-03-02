@@ -129,7 +129,7 @@ def handle_data(context, data):
         print("Percent: %f" % percent)
 
 
-def algo_to_orders(_initialize, _handle_data):
+def algorithms_to_orders(_initialize, _handle_data):
     class Context:
         pass
 
@@ -158,4 +158,4 @@ def order(operation, amount, time_index,
                        take_profit, stop_loss, holding_period])
 
 
-algo_to_orders(initialize, handle_data)
+algorithms_to_orders(initialize, handle_data)
