@@ -2,6 +2,7 @@
 import numpy as np
 
 listOrders = []
+start_up = 0.0
 
 
 def initialize(context):
@@ -19,6 +20,7 @@ def handle_data(context, data):
             context.amount * data.array[data.time_index]
         print("Total cost with stocks: %d \n\n" % total_cost)
         start_up = total_cost
+
     if context.bet == 1:
         operation = listOrders[-1][0]
         amount = listOrders[-1][1]
@@ -26,9 +28,7 @@ def handle_data(context, data):
         take_profit = listOrders[-1][3]
         stop_loss = listOrders[-1][4]
         holding_period = listOrders[-1][5]
-        take_profit_bool = 0
-        stop_loss_bool = 0
-        holding_period_bool = 0
+
         if operation == 'buy':
 
             if data.array[data.time_index] > data.array[data.time_index - 1]:
@@ -129,12 +129,12 @@ def handle_data(context, data):
         print("Percent: %f" % percent)
 
 
-def algo_to_orders(initialize, handle_data):
+def algo_to_orders(_initialize, _handle_data):
     class Context:
         pass
 
     context = Context()
-    initialize(context)
+    _initialize(context)
 
     class Data:
         def __init__(self, array):
@@ -147,9 +147,9 @@ def algo_to_orders(initialize, handle_data):
 
     close = np.load('close.npy')
     data = Data(close)
-    start_up = 0.0
+
     for data.time_index in range(36, len(close) - 1):
-        handle_data(context, data)
+        _handle_data(context, data)
 
 
 def order(operation, amount, time_index,
