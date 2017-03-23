@@ -68,12 +68,14 @@ def order(operation, takeprofit, stoploss, holdingperiod):
 
 
 def calc_TRIX(per):
-    ctxt.alpha[per] * data + (1 - ctxt.alpha[per]) * ctxt.ema[per]
-    ctxt.ema[per] =
-    ctxt.dma[per] = ctxt.alpha[per] * ctxt.ema[per] + (1 - ctxt.alpha[per]) * ctxt.dma[per]
+    ema = ctxt.alpha[per] * data + (1 - ctxt.alpha[per]) * ctxt.ema[per]
+    dma = ctxt.alpha[per] * ema + (1 - ctxt.alpha[per]) * ctxt.dma[per]
     prevtma = ctxt.tma[per]
-    ctxt.tma[per] = ctxt.alpha[per] * ctxt.dma[per] + (1 - ctxt.alpha[per]) * ctxt.tma[per]
-    ctxt.trix[per] = ((ctxt.tma[per] - prevtma) / prevtma) * 100
+    tma = ctxt.alpha[per] * dma + (1 - ctxt.alpha[per]) * ctxt.tma[per]
+    ctxt.trix[per] = ((tma - prevtma) / prevtma) * 100
+    ctxt.ema[per] = ema
+    ctxt.dma[per] = dma
+    ctxt.tma[per] = tma
 
 
 def inter_action_type(long_short):
