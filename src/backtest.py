@@ -10,16 +10,18 @@ svechka_per_hour = 60 / svechka_gap_minutes
 working_hours = 9  # длина рабочего дня
 
 
-class Context:
+class ctxt:
     pass
 
 
 close = np.load('close.npy')
-context = Context()
+ctxt = ctxt()
 
 
 def calc_period(days=0, hours=0, minutes=0):
-    return days * working_hours * svechka_per_hour + hours * svechka_per_hour + minutes / svechka_gap_minutes
+    per = days * working_hours * svechka_per_hour
+    per += hours * svechka_per_hour + minutes / svechka_gap_minutes
+    return per
 
 
 def calc_alpha(days=0, hours=0, minutes=0):
@@ -27,25 +29,35 @@ def calc_alpha(days=0, hours=0, minutes=0):
     return 2 / (1 + calc_period(days, hours, minutes))
 
 
-periods = {'9 hours': calc_period(hours=9), '25 hours': calc_period(hours=25), '9 days': calc_period(9),
-           '25 days': calc_period(25)}
+periods = {'9 hours': calc_period(hours=9)}
 
-context.period = {'9 hours': calc_period(hours=9), '25 hours': calc_period(hours=25), '9 days': calc_period(9),
-                  '25 days': calc_period(25)}
-context.ema = {'9 hours': close[periods['9 hours']], '25 hours': close[periods['25 hours']],
-               '9 days': close[periods['9 days']], '25 days': close[periods['25 days']]}
-context.dma = context.tma = context.ema
-context.alpha = {'9 hours': calc_alpha(hours=9), '25 hours': calc_alpha(hours=25), '9 days': calc_alpha(9),
-                 '25 days': calc_alpha(25)}
-context.counter = 1
-context.trix = {'9 hours': 0.0, '25 hours': 0.0, '9 days': 0.0, '25 days': 0.0}
-context.prevtrix = {'9 hours': 0.0, '25 hours': 0.0, '9 days': 0.0, '25 days': 0.0}
-# (!) засунул инициации в функции
+periods.update('25 hours', calc_period(hours=25))
+periods.update('9 days', calc_period(9))
+periods.update('25 days', calc_period(25))
 
-trix1 = []
-trix2 = []
-trix3 = []
-trix4 = []
+ctxt.period = {'9 hours': calc_period(hours=9)}
+ctxt.period.update('25 hours', calc_period(hours=25))
+ctxt.period.update('9 days', calc_period(9))
+ctxt.period.update('25 days', calc_period(25))
+
+ctxt.ema = {'9 hours': close[periods['9 hours']]}
+ctxt.ema.update('25 hours', close[periods['25 hours']])
+ctxt.ema.update('9 days', close[periods['9 days']])
+ctxt.ema.update('25 days', close[periods['25 days']])
+
+ctxt.dma = ctxt.tma = ctxt.ema
+ctxt.alpha = {'9 hours': calc_alpha(hours=9)}
+ctxt.alpha.update('25 hours', calc_alpha(hours=25))
+ctxt.alpha.update('9 days', calc_alpha(9))
+ctxt.alpha.update('25 days', calc_alpha(25))
+
+ctxt.counter = 1
+ctxt.prevtrix = ctxt.trix = {'9 hours': 0.0}
+for peri in ['25 hours', '9 days', '25 days']:
+    ctxt.prevtrix.update(peri, 0.0)
+    ctxt.prevtrix.update(peri, 0.0)
+
+trix4 = trix3 = trix2 = trix1 = []
 
 
 def order(operation, takeprofit, stoploss, holdingperiod):
@@ -56,11 +68,12 @@ def order(operation, takeprofit, stoploss, holdingperiod):
 
 
 def calc_TRIX(per):
-    context.ema[per] = context.alpha[per] * data + (1 - context.alpha[per]) * context.ema[per]
-    context.dma[per] = context.alpha[per] * context.ema[per] + (1 - context.alpha[per]) * context.dma[per]
-    prevtma = context.tma[per]
-    context.tma[per] = context.alpha[per] * context.dma[per] + (1 - context.alpha[per]) * context.tma[per]
-    context.trix[per] = ((context.tma[per] - prevtma) / prevtma) * 100
+    ctxt.alpha[per] * data + (1 - ctxt.alpha[per]) * ctxt.ema[per]
+    ctxt.ema[per] =
+    ctxt.dma[per] = ctxt.alpha[per] * ctxt.ema[per] + (1 - ctxt.alpha[per]) * ctxt.dma[per]
+    prevtma = ctxt.tma[per]
+    ctxt.tma[per] = ctxt.alpha[per] * ctxt.dma[per] + (1 - ctxt.alpha[per]) * ctxt.tma[per]
+    ctxt.trix[per] = ((ctxt.tma[per] - prevtma) / prevtma) * 100
 
 
 def inter_action_type(long_short):
@@ -68,37 +81,37 @@ def inter_action_type(long_short):
         ret = ['buylong', 'selllong']
     else:
         ret = ['sellshort', 'buyshort']
-    if (context.prevtrix['9 hours'] <= context.prevtrix['25 hours']) and (
-                context.trix['9 hours'] >= context.trix['25 hours']):
+    if (ctxt.prevtrix['9 hours'] <= ctxt.prevtrix['25 hours']) and (
+                ctxt.trix['9 hours'] >= ctxt.trix['25 hours']):
         return (ret[1])
-    elif (context.prevtrix['9 hours'] >= context.prevtrix['25 hours']) and (
-                context.trix['9 hours'] <= context.trix['25 hours']):
+    elif (ctxt.prevtrix['9 hours'] >= ctxt.prevtrix['25 hours']) and (
+                ctxt.trix['9 hours'] <= ctxt.trix['25 hours']):
         return (ret[2])
 
 
 def handle_data(data):
     # handle_data TRIX, use order function
-    context.prevtrix = context.trix
+    ctxt.prevtrix = ctxt.trix
     for per in ['9 hours', '25 hours', '9 days', '25 days']:
-        if context.counter > context.period[per]:
+        if ctxt.counter > ctxt.period[per]:
             calc_TRIX(per)
-        if context.counter > context.period['25 days']:
-            trix1.append(context.trix[0])
-            trix2.append(context.trix[1])
-            trix3.append(context.trix[2])
-            trix4.append(context.trix[3])
+        if ctxt.counter > ctxt.period['25 days']:
+            trix1.append(ctxt.trix[0])
+            trix2.append(ctxt.trix[1])
+            trix3.append(ctxt.trix[2])
+            trix4.append(ctxt.trix[3])
 
     ordered = 0
 
-    # print(context.prevtrix)
-    # print(context.trix)
+    # print(ctxt.prevtrix)
+    # print(ctxt.trix)
 
-    if context.counter > context.period['25 days']:
-        if context.trix['9 days'] > context.trix['25 days']:
-            order(inter_action_type(context), tp, sl, hp)
+    if ctxt.counter > ctxt.period['25 days']:
+        if ctxt.trix['9 days'] > ctxt.trix['25 days']:
+            order(inter_action_type(ctxt), tp, sl, hp)
             ordered = 1
-        elif context.trix['9 days'] < context.trix['25 days']:
-            order(inter_action_type(context), tp, sl, hp)
+        elif ctxt.trix['9 days'] < ctxt.trix['25 days']:
+            order(inter_action_type(ctxt), tp, sl, hp)
             ordered = 1
 
     if ordered == 0:
@@ -111,8 +124,8 @@ pass
 def algo_to_orders():
     for price in close:
         handle_data(price)
-        # print(context.trix)
-        context.counter += 1
+        # print(ctxt.trix)
+        ctxt.counter += 1
     return listOrders
 
 
