@@ -6,7 +6,6 @@ tp = 10  # take profit
 sl = 5  # stop loss
 hp = 10  # holding period
 svechka_gap_minutes = 5
-svechka_per_hour = 60 / svechka_gap_minutes
 working_hours = 9  # длина рабочего дня
 
 
@@ -68,7 +67,7 @@ def order(operation, takeprofit, stoploss, holdingperiod):
 
 
 def calc_TRIX(per):
-    ema = ctxt.alpha[per] * data + (1 - ctxt.alpha[per]) * ctxt.ema[per]
+    ema = ctxt.alpha[per] * price + (1 - ctxt.alpha[per]) * ctxt.ema[per]
     dma = ctxt.alpha[per] * ema + (1 - ctxt.alpha[per]) * ctxt.dma[per]
     prevtma = ctxt.tma[per]
     tma = ctxt.alpha[per] * dma + (1 - ctxt.alpha[per]) * ctxt.tma[per]
@@ -91,12 +90,12 @@ def inter_action_type(long_short):
         return (ret[2])
 
 
-def handle_data(data):
+def handle_data(price):
     # handle_data TRIX, use order function
     ctxt.prevtrix = ctxt.trix
     for per in ['9 hours', '25 hours', '9 days', '25 days']:
         if ctxt.counter > ctxt.period[per]:
-            calc_TRIX(per)
+            calc_TRIX(per, price)
         if ctxt.counter > ctxt.period['25 days']:
             trix1.append(ctxt.trix[0])
             trix2.append(ctxt.trix[1])
