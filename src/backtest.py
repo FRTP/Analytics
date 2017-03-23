@@ -6,6 +6,7 @@ tp = 10  # take profit
 sl = 5  # stop loss
 hp = 10  # holding period
 svechka_gap_minutes = 5
+svechka_per_hour = 60 / svechka_gap_minutes
 working_hours = 9  # длина рабочего дня
 
 
@@ -66,7 +67,7 @@ def order(operation, takeprofit, stoploss, holdingperiod):
     listOrders.append((operation, takeprofit, stoploss, holdingperiod))
 
 
-def calc_TRIX(per):
+def calc_TRIX(per, price):
     ema = ctxt.alpha[per] * price + (1 - ctxt.alpha[per]) * ctxt.ema[per]
     dma = ctxt.alpha[per] * ema + (1 - ctxt.alpha[per]) * ctxt.dma[per]
     prevtma = ctxt.tma[per]
