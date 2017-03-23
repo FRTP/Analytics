@@ -25,7 +25,6 @@ def calc_period(days=0, hours=0, minutes=0):
 
 
 def calc_alpha(days=0, hours=0, minutes=0):
-    svechka_per_minute = svechka_per_hour / 60
     return 2 / (1 + calc_period(days, hours, minutes))
 
 
