@@ -1,28 +1,46 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
 listOrders = []
 tp = 10  # take profit
 sl = 5  # stop loss
 hp = 10  # holding period
-svechka_per_hour = 60 / 5
+svechka_gap_minutes = 5
+svechka_per_hour = 60 / svechka_gap_minutes
+working_hours = 9  # длина рабочего дня
 
 
 class Context:
     pass
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-
 close = np.load('close.npy')
 context = Context()
-context.period = [9 * svechka_per_hour, 25 * svechka_per_hour, 9 * svechka_per_hour * 9, 25 * svechka_per_hour * 9]
-context.ema = [close[context.period[0]], close[context.period[1]], close[context.period[2]], close[context.period[3]]]
-context.dma = [close[context.period[0]], close[context.period[1]], close[context.period[2]], close[context.period[3]]]
-context.tma = [close[context.period[0]], close[context.period[1]], close[context.period[2]], close[context.period[3]]]
-context.alpha = [2 / (9 * svechka_per_hour + 1), 2 / (25 * svechka_per_hour + 1), 2 / (9 * svechka_per_hour * 9 + 1),
-                 2 / (25 * svechka_per_hour * 9 + 1)]
+
+
+def calc_period(days=0, hours=0, minutes=0):
+    return days * working_hours * svechka_per_hour + hours * svechka_per_hour + minutes / svechka_gap_minutes
+
+
+def calc_alpha(days=0, hours=0, minutes=0):
+    svechka_per_minute = svechka_per_hour / 60
+    return 2 / (1 + calc_period(days, hours, minutes))
+
+
+periods = {'9 hours': calc_period(hours=9), '25 hours': calc_period(hours=25), '9 days': calc_period(9),
+           '25 days': calc_period(25)}
+
+context.period = {'9 hours': calc_period(hours=9), '25 hours': calc_period(hours=25), '9 days': calc_period(9),
+                  '25 days': calc_period(25)}
+context.ema = {'9 hours': close[periods['9 hours']], '25 hours': close[periods['25 hours']],
+               '9 days': close[periods['9 days']], '25 days': close[periods['25 days']]}
+context.dma = context.tma = context.ema
+context.alpha = {'9 hours': calc_alpha(hours=9), '25 hours': calc_alpha(hours=25), '9 days': calc_alpha(9),
+                 '25 days': calc_alpha(25)}
 context.counter = 1
-context.trix = [0.0, 0.0, 0.0, 0.0]
-context.prevtrix = [0.0, 0.0, 0.0, 0.0]
+context.trix = {'9 hours': 0.0, '25 hours': 0.0, '9 days': 0.0, '25 days': 0.0}
+context.prevtrix = {'9 hours': 0.0, '25 hours': 0.0, '9 days': 0.0, '25 days': 0.0}
+# (!) засунул инициации в функции
 
 trix1 = []
 trix2 = []
@@ -37,17 +55,34 @@ def order(operation, takeprofit, stoploss, holdingperiod):
     listOrders.append((operation, takeprofit, stoploss, holdingperiod))
 
 
-def handle_data(context, data):
+def calc_TRIX(per):
+    context.ema[per] = context.alpha[per] * data + (1 - context.alpha[per]) * context.ema[per]
+    context.dma[per] = context.alpha[per] * context.ema[per] + (1 - context.alpha[per]) * context.dma[per]
+    prevtma = context.tma[per]
+    context.tma[per] = context.alpha[per] * context.dma[per] + (1 - context.alpha[per]) * context.tma[per]
+    context.trix[per] = ((context.tma[per] - prevtma) / prevtma) * 100
+
+
+def inter_action_type(long_short):
+    if long_short == 'long':
+        ret = ['buylong', 'selllong']
+    else:
+        ret = ['sellshort', 'buyshort']
+    if (context.prevtrix['9 hours'] <= context.prevtrix['25 hours']) and (
+                context.trix['9 hours'] >= context.trix['25 hours']):
+        return (ret[1])
+    elif (context.prevtrix['9 hours'] >= context.prevtrix['25 hours']) and (
+                context.trix['9 hours'] <= context.trix['25 hours']):
+        return (ret[2])
+
+
+def handle_data(data):
     # handle_data TRIX, use order function
     context.prevtrix = context.trix
-    for i in [0, 1, 2, 3]:
-        if context.counter > context.period[i]:
-            context.ema[i] = context.alpha[i] * data + (1 - context.alpha[i]) * context.ema[i]
-            context.dma[i] = context.alpha[i] * context.ema[i] + (1 - context.alpha[i]) * context.dma[i]
-            prevtma = context.tma[i]
-            context.tma[i] = context.alpha[i] * context.dma[i] + (1 - context.alpha[i]) * context.tma[i]
-            context.trix[i] = ((context.tma[i] - prevtma) / prevtma) * 100
-        if context.counter > context.period[3]:
+    for per in ['9 hours', '25 hours', '9 days', '25 days']:
+        if context.counter > context.period[per]:
+            calc_TRIX(per)
+        if context.counter > context.period['25 days']:
             trix1.append(context.trix[0])
             trix2.append(context.trix[1])
             trix3.append(context.trix[2])
@@ -58,27 +93,13 @@ def handle_data(context, data):
     # print(context.prevtrix)
     # print(context.trix)
 
-    if context.counter > context.period[3]:
-        if context.trix[2] > context.trix[3]:
-            # print('I passed second.1 condition')
-            if (context.prevtrix[0] <= context.prevtrix[1]) and (context.trix[0] >= context.trix[1]):
-                print('buylong')
-                order('buylong', tp, sl, hp)
-                ordered = 1
-            elif (context.prevtrix[0] >= context.prevtrix[1]) and (context.trix[0] <= context.trix[1]):
-                print('selllong')
-                order('selllong', tp, sl, hp)
-                ordered = 1
-        elif context.trix[2] < context.trix[3]:
-            # print('I passed second.2 condition')
-            if (context.prevtrix[0] >= context.prevtrix[1]) and (context.trix[0] <= context.trix[1]):
-                print('buyshort')
-                order('buyshort', tp, sl, hp)
-                ordered = 1
-            elif (context.prevtrix[0] <= context.prevtrix[1]) and (context.trix[0] >= context.trix[1]):
-                print('sellshort')
-                order('sellshort', tp, sl, hp)
-                ordered = 1
+    if context.counter > context.period['25 days']:
+        if context.trix['9 days'] > context.trix['25 days']:
+            order(inter_action_type(context), tp, sl, hp)
+            ordered = 1
+        elif context.trix['9 days'] < context.trix['25 days']:
+            order(inter_action_type(context), tp, sl, hp)
+            ordered = 1
 
     if ordered == 0:
         order('continue', 0, 0, 0)
@@ -89,21 +110,21 @@ pass
 
 def algo_to_orders():
     for price in close:
-        handle_data(context, price)
+        handle_data(price)
         # print(context.trix)
         context.counter += 1
     return listOrders
 
 
 def calculate_finance_result():
-    # Алгоритм на 2-х итераторах по данным и по списку заявок, вспоминаем про   прямоугольник и то, что если мы сейчас не закрыли заявку в новую не входим:
+    # Алгоритм на 2-х итераторах по данным и по списку заявок,
+    # вспоминаем про   прямоугольник и то, что если мы сейчас не закрыли заявку в новую не входим:
     moment = 0
     inlong = 0
     inshort = 0
     enter_price = 0.0
     finance_result = 0.0
     for cur_ord in listOrders:
-        # print('moment ', moment)
         if inlong == 0 and inshort == 0:
             if cur_ord[0] == 'buylong':
                 inlong = 1
