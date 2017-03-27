@@ -30,7 +30,6 @@ def handle_data(context, data):
         holding_period = listOrders[-1][5]
 
         if operation == 'buy':
-
             if data.array[data.time_index] > data.array[data.time_index - 1]:
                 # correction(increase level of stop_loss)
                 listOrders[-1][2] = data.time_index
@@ -58,7 +57,6 @@ def handle_data(context, data):
                       % (context.amount, context.cash))
 
         elif operation == 'sell':
-
             if data.array[data.time_index] < data.array[data.time_index - 1]:
                 # correction(decrease level of stop_loss)
                 listOrders[-1][2] = data.time_index
@@ -130,10 +128,9 @@ def handle_data(context, data):
 
 
 def algorithms_to_orders(_initialize, _handle_data):
-    class Context:
+    class Empty:
         pass
-
-    context = Context()
+    context = Empty()
     _initialize(context)
 
     class Data:
